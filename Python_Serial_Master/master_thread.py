@@ -11,6 +11,7 @@ import deepstream_socket_thread
 import serial_thread
 import detect_pipe_pb2
 import tracked_object
+import traceback
 
 class master_thread:
     def __init__(self):
@@ -20,17 +21,51 @@ class master_thread:
         self.meta_data_pipe = queue.Queue()
         #init and start our threads
         self.init_threads()
+        self.tracked_objs = {}
 
     def init_threads(self):
-        self.serial_thread = serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q)
-        self.socket_thread = deepstream_socket_thread(info_pipe=self.meta_data_pipe)
-        self.serial_thread.start()
-        self.socket_thread.start()
+        self.my_serial_thread = serial_thread.serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q)
+        self.socket_thread = deepstream_socket_thread.deepstream_socket_thread(info_pipe=self.meta_data_pipe)
+        try:
+            self.my_serial_thread.start()
+        except Exception as e:
+            print("Exception in serial_thread:")
+            traceback.print_exc(file=sys.stdout)
+        try:
+            self.socket_thread.start()
+        except Exception as e:
+            print("Exception in socket thread")
+            traceback.print_exc(file=sys.stdout)
     
     def run_main_prog(self):
         while(True):
             #do stuff
-            pass
+            #print("HearBeat Test: MainThread")
+            self.handle_new_metadata()
+            self.handle_new_arduino_msg()
+
 
     def handle_new_metadata(self):
-        return 1
+        if not self.meta_data_pipe.empty:
+            data = self.meta_data_pipe.get()
+            if data.get_ID() in self.tracked_objs:
+                self.tracked_objs[data.get_ID()].update_coordinates(self.data)
+            else:
+                self.tracked_objs[data.get_ID()] = tracked_object(self.get_ID())
+                self.tracked_objs[data.get_ID()].update_coordinates(self.data)
+            
+            (velocity, theta) = self.track_objs[data.get_ID()].grab_relevant_data()
+            if velocity < 1 or theta < 1:
+                pass
+            else:
+                self.tx_q.put(self.track_objs[data.get_ID()].package_serial())
+    
+    def handle_new_arduino_msg(self):
+        if not self.recv_q.empty:
+            byte_string = self.recv_q.get()
+            print("Arduino sent bytestring: {0}".format(byte_string))
+
+if __name__ == "__main__":
+    run_prog = master_thread()
+    run_prog.run_main_prog()
+

@@ -5,10 +5,10 @@
 * Note: CRC8 communication will be calculated on this thread with the information sent by the main thread
 '''
 import queue
-import pyserial
+import serial
 import threading
 import traceback
-
+import time
 NACK = bytearray("INVALIDMSG", 'utf-8')  #Want 40 bit, so 10 char (account for CRC)
 
 class serial_thread(threading.Thread):
@@ -22,19 +22,22 @@ class serial_thread(threading.Thread):
         self.tx_q = tx_queue
         self.open_serial_port()
         self.lms = None                 #Last message sent
+        print("Serial Port Init")
     
     def run(self):
+        print("in Serial Thread")
         if not self.tx_q.empty():
             transmit = self.tx_q.get()
-            transmit.append(self.calc_CRC8(transmit))
+            print("We sent: {0}, at {1}".format(transmit, time.time()))
+            #transmit.append(self.calc_CRC8(transmit))
             self.serial_conn.write(transmit)
             self.lms = transmit
-        if self.serial_conn.in_waiting() > 0:
-            rx = read(5)                        #expect a 5 byte word
+        if self.serial_conn.in_waiting > 0:
+            rx = read(2)                        #expect a 5 byte word
             if rx == NACK:
                 self.write(lms)
-            elif self.calc_CRC8 != rx[4]:       #check CRC
-                self.write(NACK)                #Notify Arduino CRC mismatch
+            #elif self.calc_CRC8 != rx[4]:       #check CRC
+                #self.write(NACK)                #Notify Arduino CRC mismatch
 
     def open_serial_port(self):
         try:

@@ -18,7 +18,7 @@ class deepstream_socket_thread(threading.Thread):
     def __init__(self, info_pipe):
         threading.Thread.__init__(self)
         self.pipe = info_pipe
-        #self.init_socket()
+        self.init_socket()
         self.isInit = False
         self.proto_data = detect_pipe_pb2.DETECTION()
     
@@ -33,14 +33,14 @@ class deepstream_socket_thread(threading.Thread):
 
     def run(self):
         print("In Run Socket")
-        context = zmq.Context()
-        socket = context.socket(zmq.PULL)
-        socket.connect("tcp://localhost:5555")
-        poll = zmq.Poller()
-        poll.register(socket)
+        #context = zmq.Context()
+        #socket = context.socket(zmq.PULL)
+        #socket.connect("tcp://localhost:5555")
+        #poll = zmq.Poller()
+        #poll.register(socket)
         while(True):
-            if socket in dict(poll.poll(0)):
-                data = socket.recv()
+            if self.socket in dict(self.poll.poll(0)):
+                data = self.socket.recv()
                 self.proto_data.ParseFromString(data)
                 print("Received info packet in socket thread")
                 detection_obj = detections.detections(x=self.proto_data.x,

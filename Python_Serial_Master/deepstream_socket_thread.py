@@ -11,13 +11,15 @@ import zmq                   #for socket
 import detect_pipe_pb2       #protobuffer unpacking
 import detections            #We need way to store and send value down queue
 import queue
+from threading import Lock
 
 class deepstream_socket_thread(threading.Thread):
     #Initialize the socket thread, requires an instance of the queue needed to send info
     #To the main thread
-    def __init__(self, info_pipe):
+    def __init__(self, info_pipe, lock):
         threading.Thread.__init__(self)
         self.pipe = info_pipe
+        self.locker = lock
         self.init_socket()
         self.isInit = False
         self.proto_data = detect_pipe_pb2.DETECTION()
@@ -29,10 +31,14 @@ class deepstream_socket_thread(threading.Thread):
         self.socket.connect("tcp://localhost:%s" % port)
         self.poll = zmq.Poller()
         self.poll.register(self.socket)
-        print("Socket Initialized")
+        self.ts_print("Socket Initialized")
+
+    def ts_print(self, *a, **b):
+        with self.locker:
+            print(*a, **b)
 
     def run(self):
-        print("In Run Socket")
+        self.ts_print("In Run Socket")
         #context = zmq.Context()
         #socket = context.socket(zmq.PULL)
         #socket.connect("tcp://localhost:5555")
@@ -42,7 +48,7 @@ class deepstream_socket_thread(threading.Thread):
             if self.socket in dict(self.poll.poll(0)):
                 data = self.socket.recv()
                 self.proto_data.ParseFromString(data)
-                print("Received info packet in socket thread")
+                #self.ts_print("Received info packet in socket thread")
                 detection_obj = detections.detections(x=self.proto_data.x,
                         y=self.proto_data.y, h=self.proto_data.h, w=self.proto_data.w,
                         label=self.proto_data.label, 

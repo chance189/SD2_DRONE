@@ -12,6 +12,7 @@ import serial_thread
 import detect_pipe_pb2
 import tracked_object
 import traceback
+from threading import Lock
 
 class master_thread:
     def __init__(self):
@@ -20,41 +21,49 @@ class master_thread:
         self.tx_q = queue.Queue()
         self.meta_data_pipe = queue.Queue()
         #init and start our threads
+        self.locker = Lock()
         self.init_threads()
         self.tracked_objs = {}
 
     def init_threads(self):
-        self.my_serial_thread = serial_thread.serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q)
-        self.socket_thread = deepstream_socket_thread.deepstream_socket_thread(info_pipe=self.meta_data_pipe)
+        self.my_serial_thread = serial_thread.serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q, lock=self.locker)
+        self.socket_thread = deepstream_socket_thread.deepstream_socket_thread(info_pipe=self.meta_data_pipe, lock=self.locker)
         try:
             self.my_serial_thread.start()
         except Exception as e:
-            print("Exception in serial_thread:")
+            self.ts_print("Exception in serial_thread:")
             traceback.print_exc(file=sys.stdout)
         try:
             self.socket_thread.start()
         except Exception as e:
-            print("Exception in socket thread")
+            self.ts_print("Exception in socket thread")
             traceback.print_exc(file=sys.stdout)
     
     def run_main_prog(self):
+        self.ts_print("In main thread")
         while(True):
             #do stuff
             #print("HearBeat Test: MainThread")
             self.handle_new_metadata()
             self.handle_new_arduino_msg()
 
+    def ts_print(self, *a, **b):
+        with self.locker:
+            print(*a, **b)
 
     def handle_new_metadata(self):
-        if not self.meta_data_pipe.empty:
+        if not self.meta_data_pipe.empty():
+            self.ts_print("Handling new Metadata")
             data = self.meta_data_pipe.get()
             if data.get_ID() in self.tracked_objs:
-                self.tracked_objs[data.get_ID()].update_coordinates(self.data)
+                self.tracked_objs[data.get_ID()].update_coordinates(data)
+                self.ts_print("Added to ID: {0}".format(data.get_ID()))
             else:
-                self.tracked_objs[data.get_ID()] = tracked_object(self.get_ID())
-                self.tracked_objs[data.get_ID()].update_coordinates(self.data)
+                self.ts_print("Adding new ID: {0} to dictionary".format(data.get_ID()))
+                self.tracked_objs[data.get_ID()] = tracked_object.tracked_object(data.get_ID())
+                self.tracked_objs[data.get_ID()].update_coordinates(data)
             
-            (velocity, theta) = self.track_objs[data.get_ID()].grab_relevant_data()
+            (velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
             if velocity < 1 or theta < 1:
                 pass
             else:
@@ -63,9 +72,8 @@ class master_thread:
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty:
             byte_string = self.recv_q.get()
-            print("Arduino sent bytestring: {0}".format(byte_string))
+            self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
 
 if __name__ == "__main__":
     run_prog = master_thread()
     run_prog.run_main_prog()
-

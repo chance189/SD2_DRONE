@@ -1,0 +1,16 @@
+/***********
+* Author: Chance Reimer
+* Purpose: Protocol buffer between gstreamer application and a python program that is communicating to an arduino
+*/
+
+syntax = "proto3";
+package SD1;
+//Message start
+message DETECTION {
+	float x = 1;
+	float y = 2;
+	float w = 3;
+	float h = 4;
+	string label = 5;
+}
+//Message end

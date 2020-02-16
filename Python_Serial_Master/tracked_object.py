@@ -11,7 +11,7 @@ import math
 from collections import deque
 from detections import detections
 
-class Tracked_Object:
+class tracked_object:
     def __init__(self, unique_id=1):
         self.detections = deque(maxlen=2)  #create last two detections, FIFO
         self.velocity = -1.0

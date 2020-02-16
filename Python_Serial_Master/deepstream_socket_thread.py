@@ -18,7 +18,8 @@ class deepstream_socket_thread(threading.Thread):
     def __init__(self, info_pipe):
         threading.Thread.__init__(self)
         self.pipe = info_pipe
-        self.init_socket()
+        #self.init_socket()
+        self.isInit = False
         self.proto_data = detect_pipe_pb2.DETECTION()
     
     def init_socket(self):
@@ -27,17 +28,26 @@ class deepstream_socket_thread(threading.Thread):
         port = "5555"
         self.socket.connect("tcp://localhost:%s" % port)
         self.poll = zmq.Poller()
-        self.poll.register(socket)
+        self.poll.register(self.socket)
+        print("Socket Initialized")
 
     def run(self):
-        if socket in dict(self.poll.poll(0)):
-            data = socket.recv()
-            self.proto_data.ParseFromString(data)
-            print("Received info packet in socket thread")
-            detection_obj = detections(x=self.proto_data.x,
-                    y=self.proto_data.y, h=self.proto_data.h, w=self.proto_data.w,
-                    label=self.proto_data.label, timeStamp=time.time())
-            self.pipe.put(detection_obj)
+        print("In Run Socket")
+        context = zmq.Context()
+        socket = context.socket(zmq.PULL)
+        socket.connect("tcp://localhost:5555")
+        poll = zmq.Poller()
+        poll.register(socket)
+        while(True):
+            if socket in dict(poll.poll(0)):
+                data = socket.recv()
+                self.proto_data.ParseFromString(data)
+                print("Received info packet in socket thread")
+                detection_obj = detections.detections(x=self.proto_data.x,
+                        y=self.proto_data.y, h=self.proto_data.h, w=self.proto_data.w,
+                        label=self.proto_data.label, 
+                        timeStamp=time.time())
+                self.pipe.put(detection_obj)
 
     def get_id(self):
         if hasattr(self, '_thread_id'):

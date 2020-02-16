@@ -1,8 +1,10 @@
 #Ignore all compilation files
-.o
+*.o
 #ignore all text files
-.txt
+*.txt
 #ignore cmake installs
-.cmake
+*.cmake
 #swap files are a no go
-.swp
+*.swp
+#no python binaries
+*.pyc

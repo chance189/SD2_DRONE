@@ -64,10 +64,10 @@ class master_thread:
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
             
             (velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
-            if velocity < 1 or theta < 1:
+            if velocity < 1:
                 pass
             else:
-                self.tx_q.put(self.track_objs[data.get_ID()].package_serial())
+                self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
     
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty:

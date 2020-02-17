@@ -66,9 +66,9 @@ class tracked_object:
 
     def package_serial(self):
         #Send one byte for the panning, and one for the tilt, signed 8 bit number
-        byte_X = int(self.y_mod_coord/tan(radians(self.theta))).to_bytes(1, byteorder="little", signed=True)
-        byte_Y = int(tan(radians(self.theta))*self.x_mod_coord).to_bytes(1, byteorder="little", signed=True)
+        byte_X = (int(self.y_mod_coord/tan(radians(self.theta)))%128).to_bytes(1, byteorder="little", signed=True)
+        byte_Y = (int(tan(radians(self.theta))*self.x_mod_coord)%128).to_bytes(1, byteorder="little", signed=True)
         bytes_to_send = bytearray()
-        bytes_to_send.append(byte_X)
-        bytes_to_send.append(byte_Y)
+        bytes_to_send += bytearray(byte_X)
+        bytes_to_send += bytearray(byte_Y)
         return bytes_to_send

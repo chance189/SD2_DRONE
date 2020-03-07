@@ -33,10 +33,11 @@ class serial_thread(threading.Thread):
                 transmit = self.tx_q.get();
                 self.ts_print("We sent: {0}, at {1}".format(transmit, time.time()))
                 #transmit.append(self.calc_CRC8(transmit))
-                self.serial_conn.write(transmit)
+                self.serial_conn.write(transmit[0].encode('utf8'))
+                self.serial_conn.write(transmit[1].encode('utf8'))
                 self.lms = transmit
             if self.serial_conn.in_waiting > 0:
-                rx = read(2)                        #expect a 5 byte word
+                rx = self.serial_conn.read(2)                        #expect a 5 byte word
                 if rx == NACK:
                     self.write(lms)
                 #elif self.calc_CRC8 != rx[4]:       #check CRC
@@ -50,7 +51,7 @@ class serial_thread(threading.Thread):
         try:
             self.serial_conn = serial.Serial()
             self.serial_conn.port = "/dev/ttyTHS1"
-            self.serial_conn.baudrate = 115200
+            self.serial_conn.baudrate = 9600
             self.serial_conn.timeout = 1
             self.serial_conn.setDTR(False)
             self.serial_conn.setRTS(False)

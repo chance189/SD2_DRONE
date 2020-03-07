@@ -14,8 +14,8 @@ from detections import detections
 from math import *
 from threading import Lock
 
-centerX = 1920/2   #this is our width of screen divided by 2
-centerY = 1080/2 
+centerX = 1366/2   #this is our width of screen divided by 2
+centerY = 768/2
 
 class tracked_object:
     def __init__(self, unique_id=1):
@@ -25,7 +25,7 @@ class tracked_object:
         self.theta = -1.0
         self.unique_id = unique_id
         self.locker = Lock()               #Mutex for ensuring threadsafe prints
-
+        
     def grab_velocity(self):
         return self.velocity
 
@@ -44,14 +44,27 @@ class tracked_object:
             self.calc_velocity()
             self.calc_theta()
             if self.locker:
-                self.ts_print("Updated Stats for ID: {0}\nVelocity(ft/s): {1}\nAngle (degrees) {2}".format(self.unique_id, self.velocity, self.theta))
+                self.ts_print("Updated Stats for ID: {0}\nVelocity(ft/s): {1}\nAngle (degrees) {2}\nDistance: {3}".format(self.unique_id, self.velocity, self.theta, self.detections[-1].get_dist()))
 
     def calc_velocity(self):
         if len(self.detections) == 2:
-            (x1, y1) = (self.detections[0].get_X(), self.detections[0].get_Y())  #push from right, so
-            (x2, y2) = (self.detections[1].get_X(), self.detections[1].get_Y())  #index 1 is most recent
-            dist = sqrt((x2-x1)**2 + (y2-y1)**2)                  #Distance formula
+            (x1, y1) = (self.detections[0].get_center_coord())  #push from right, so
+            (x2, y2) = (self.detections[1].get_center_coord())  #index 1 is most recent
+            dist = sqrt((x2-x1)**2 + (y2-y1)**2)                #Distance formula, find pixel diff
             self.velocity = dist/(self.detections[1].get_timeStamp() - self.detections[0].get_timeStamp())
+            if x2-centerX > 0:
+                self.dir_rl = "r"
+            elif x2-centerX < 0:
+                self.dir_rl = "l"
+            else:
+                self.dir_rl = "n"   #Neither
+
+            if y2-centerY > 0:
+                self.dir_ud = "d"  #if pos, then going in neg dir
+            elif y2-centerY < 0: 
+                self.dir_ud = "u"
+            else:
+                self.dir_ud = "n"
 
     #Using center of screen as reference point (size of camera is defined, so it will be 1/2 x, 1/2 y for coordinates
     #Need to find distance from center, and calculate it using atan2
@@ -66,9 +79,16 @@ class tracked_object:
 
     def package_serial(self):
         #Send one byte for the panning, and one for the tilt, signed 8 bit number
-        byte_X = (int(self.y_mod_coord/tan(radians(self.theta)))%128).to_bytes(1, byteorder="little", signed=True)
-        byte_Y = (int(tan(radians(self.theta))*self.x_mod_coord)%128).to_bytes(1, byteorder="little", signed=True)
-        bytes_to_send = bytearray()
-        bytes_to_send += bytearray(byte_X)
-        bytes_to_send += bytearray(byte_Y)
+        #want to catch the exceptions that we divide by 0
+        try:
+            byte_X = (int(self.y_mod_coord/tan(radians(self.theta)))%128).to_bytes(1, byteorder="little", signed=True)
+            byte_Y = (int(tan(radians(self.theta))*self.x_mod_coord)%128).to_bytes(1, byteorder="little", signed=True)
+        except Exception as e:
+            print(e)
+            byte_X = (1).to_bytes(1, byteorder="little", signed=True)
+            byte_Y = (1).to_bytes(1, byteorder="little", signed=True)
+        #bytes_to_send = bytearray()
+        #bytes_to_send += self.dir_rl.encode('utf8')
+        #bytes_to_send += bytearray(self.dir_ud, 'utf8')
+        bytes_to_send = self.dir_rl+self.dir_ud
         return bytes_to_send

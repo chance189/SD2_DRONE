@@ -43,8 +43,8 @@ class tracked_object:
             self.detections.append(detection)
             self.calc_velocity()
             self.calc_theta()
-            if self.locker:
-                self.ts_print("Updated Stats for ID: {0}\nVelocity(ft/s): {1}\nAngle (degrees) {2}\nDistance: {3}".format(self.unique_id, self.velocity, self.theta, self.detections[-1].get_dist()))
+            #if self.locker:
+                #self.ts_print("Updated Stats for ID: {0}\nVelocity(ft/s): {1}\nAngle (degrees) {2}\nDistance: {3}".format(self.unique_id, self.velocity, self.theta, self.detections[-1].get_dist()))
 
     def calc_velocity(self):
         if len(self.detections) == 2:

@@ -57,9 +57,11 @@ class master_thread:
             data = self.meta_data_pipe.get()
             if data.get_ID() in self.tracked_objs:
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
-                self.ts_print("Added to ID: {0}".format(data.get_ID()))
+                (x_c, y_c) = data.get_center_coord()
+                self.ts_print("The x center: {0}, the y center: {1}".format(x_c, y_c))
+                #self.ts_print("Added to ID: {0}".format(data.get_ID()))
             else:
-                self.ts_print("Adding new ID: {0} to dictionary".format(data.get_ID()))
+                #self.ts_print("Adding new ID: {0} to dictionary".format(data.get_ID()))
                 self.tracked_objs[data.get_ID()] = tracked_object.tracked_object(data.get_ID())
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
             
@@ -72,7 +74,7 @@ class master_thread:
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty:
             byte_string = self.recv_q.get()
-            self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
+            #self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
 
 if __name__ == "__main__":
     run_prog = master_thread()

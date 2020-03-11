@@ -13,6 +13,9 @@ import detect_pipe_pb2
 import tracked_object
 import traceback
 from threading import Lock
+import Timer_Mod
+import sys
+import time
 
 class master_thread:
     def __init__(self):
@@ -24,6 +27,8 @@ class master_thread:
         self.locker = Lock()
         self.init_threads()
         self.tracked_objs = {}
+        self.timer = None
+        self.sent_data = False          #used for ensuring that
 
     def init_threads(self):
         self.my_serial_thread = serial_thread.serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q, lock=self.locker)
@@ -58,23 +63,46 @@ class master_thread:
             if data.get_ID() in self.tracked_objs:
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
                 (x_c, y_c) = data.get_center_coord()
-                self.ts_print("The x center: {0}, the y center: {1}".format(x_c, y_c))
+                self.ts_print("The x center: {0}, the y center: {1}, sent_data: {2}".format(x_c, y_c, self.sent_data))
                 #self.ts_print("Added to ID: {0}".format(data.get_ID()))
             else:
                 #self.ts_print("Adding new ID: {0} to dictionary".format(data.get_ID()))
-                self.tracked_objs[data.get_ID()] = tracked_object.tracked_object(data.get_ID())
+                self.tracked_objs[data.get_ID()] = tracked_object.tracked_object(unique_id=data.get_ID(), locker=self.locker)
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
             
             (velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
-            if velocity < 1:
+            
+            self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
+            time.sleep(3)
+            '''
+            #Here lies my madness with dumb fucking timers
+            if self.sent_data:
                 pass
             else:
                 self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
+                if self.timer is None:
+                    self.timer = Timer_Mod.Timer_Mod(self)
+                
+                with self.locker:
+                    self.sent_data = True
+            
+                try:
+                    self.timer.start()
+                except Exception as e:
+                    self.ts_print("Attempting to join!!!")
+                    self.timer.join()
+                    self.timer.start()
+                    self.ts_print("Successful joining!")
+            '''
+                
     
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty:
             byte_string = self.recv_q.get()
-            #self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
+            with self.locker:
+                if self.sent_data:
+                    self.timer.sepuku()
+            self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
 
 if __name__ == "__main__":
     run_prog = master_thread()

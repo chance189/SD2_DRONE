@@ -16,15 +16,16 @@ from threading import Lock
 
 centerX = 1366/2   #this is our width of screen divided by 2
 centerY = 768/2
+width_drone = 3.9  #size of drone in inches
 
 class tracked_object:
-    def __init__(self, unique_id=1):
+    def __init__(self, locker,  unique_id=1):
         self.detections = deque(maxlen=2)  #create last two detections, FIFO
         self.velocity = -1.0
         self.distance = -1.0
         self.theta = -1.0
         self.unique_id = unique_id
-        self.locker = Lock()               #Mutex for ensuring threadsafe prints
+        self.locker = locker               #Mutex for ensuring threadsafe prints
         
     def grab_velocity(self):
         return self.velocity
@@ -69,9 +70,11 @@ class tracked_object:
     #Using center of screen as reference point (size of camera is defined, so it will be 1/2 x, 1/2 y for coordinates
     #Need to find distance from center, and calculate it using atan2
     def calc_theta(self):
+        (x_c, y_c) = self.detections[-1].get_center_coord()
+        self.x_mod_coord = x_c - centerX
+        self.y_mod_coord = y_c - centerY
+
         if len(self.detections) == 2:
-            self.x_mod_coord = self.detections[1].get_X() - centerX
-            self.y_mod_coord = self.detections[1].get_Y() - centerY
             self.theta = degrees(math.atan2(self.y_mod_coord, self.x_mod_coord))
 
     def grab_relevant_data(self):
@@ -81,8 +84,21 @@ class tracked_object:
         #Send one byte for the panning, and one for the tilt, signed 8 bit number
         #want to catch the exceptions that we divide by 0
         try:
-            byte_X = (int(self.y_mod_coord/tan(radians(self.theta)))%128).to_bytes(1, byteorder="little", signed=True)
-            byte_Y = (int(tan(radians(self.theta))*self.x_mod_coord)%128).to_bytes(1, byteorder="little", signed=True)
+            #byte_X = (int(self.y_mod_coord/tan(radians(self.theta)))%128).to_bytes(1, byteorder="little", signed=True)
+            #byte_Y = (int(tan(radians(self.theta))*self.x_mod_coord)%128).to_bytes(1, byteorder="little", signed=True)
+            '''
+            Some explanation:
+            Here we are making the relationship that the already calculated distance can be used
+            in conjunction with the size in pixels of the drone, assuming the drone's size is known,
+            in order to calculate an angle
+            '''
+            inch_to_pixel = width_drone/self.detections[-1].get_W()
+            byte_X = (int)(degrees(atan2((self.x_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+            byte_Y = (int)(degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+            print("Byte X: {0}, Byte Y: {1}".format(byte_X, byte_Y))
+            print("x_mod_coord: {0}, y_mod_coord: {1}".format(self.x_mod_coord, self.y_mod_coord))
+            byte_X = byte_X.to_bytes(1, byteorder="little", signed=True)
+            byte_Y = byte_Y.to_bytes(1, byteorder="little", signed=True)
         except Exception as e:
             print(e)
             byte_X = (1).to_bytes(1, byteorder="little", signed=True)
@@ -90,5 +106,7 @@ class tracked_object:
         #bytes_to_send = bytearray()
         #bytes_to_send += self.dir_rl.encode('utf8')
         #bytes_to_send += bytearray(self.dir_ud, 'utf8')
-        bytes_to_send = self.dir_rl+self.dir_ud
+        bytes_to_send = bytearray()
+        bytes_to_send += byte_X
+        bytes_to_send += byte_Y
         return bytes_to_send

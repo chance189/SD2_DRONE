@@ -1,7 +1,5 @@
 #Ignore all compilation files
 *.o
-#ignore all text files
-*.txt
 #ignore cmake installs
 *.cmake
 #swap files are a no go

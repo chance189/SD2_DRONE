@@ -38,9 +38,10 @@ class serial_thread(threading.Thread):
                 #self.serial_conn.write(transmit[1].encode('utf8'))
                 self.lms = transmit
             if self.serial_conn.in_waiting > 0:
-                rx = self.serial_conn.read(2)                        #expect a 5 byte word
+                rx = self.serial_conn.read(1)                        #expect a 2 byte word
                 if rx == NACK:
                     self.write(lms)
+                self.recv_q.put(rx)
                 #elif self.calc_CRC8 != rx[4]:       #check CRC
                     #self.write(NACK)                #Notify Arduino CRC mismatch
 

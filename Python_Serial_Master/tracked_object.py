@@ -72,7 +72,9 @@ class tracked_object:
     def calc_theta(self):
         (x_c, y_c) = self.detections[-1].get_center_coord()
         self.x_mod_coord = x_c - centerX
-        self.y_mod_coord = y_c - centerY
+        #because of setup, neg values go down, pos values go up
+        #but, y is positive going down, meaning if centerY - y_c is neg, we should go down
+        self.y_mod_coord = centerY - y_c   
 
         if len(self.detections) == 2:
             self.theta = degrees(math.atan2(self.y_mod_coord, self.x_mod_coord))
@@ -97,8 +99,9 @@ class tracked_object:
             byte_Y = (int)(degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
             print("Byte X: {0}, Byte Y: {1}".format(byte_X, byte_Y))
             print("x_mod_coord: {0}, y_mod_coord: {1}".format(self.x_mod_coord, self.y_mod_coord))
-            byte_X = byte_X.to_bytes(1, byteorder="little", signed=True)
-            byte_Y = byte_Y.to_bytes(1, byteorder="little", signed=True)
+            print("Distance: {0}, Width in Bytes: {1}, ratio: {2}".format(self.detections[-1].get_dist(), self.detections[-1].get_W(), inch_to_pixel))
+            byte_X = (byte_X).to_bytes(1, byteorder="little", signed=True)
+            byte_Y = (byte_Y).to_bytes(1, byteorder="little", signed=True)
         except Exception as e:
             print(e)
             byte_X = (1).to_bytes(1, byteorder="little", signed=True)

@@ -72,14 +72,16 @@ class master_thread:
             
             (velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
             
-            self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
-            time.sleep(3)
-            '''
+            #self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
+            #time.sleep(3)
+            #'''
             #Here lies my madness with dumb fucking timers
             if self.sent_data:
                 pass
             else:
                 self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
+                self.sent_data = True
+            '''
                 if self.timer is None:
                     self.timer = Timer_Mod.Timer_Mod(self)
                 
@@ -97,12 +99,11 @@ class master_thread:
                 
     
     def handle_new_arduino_msg(self):
-        if not self.recv_q.empty:
+        if not self.recv_q.empty():
             byte_string = self.recv_q.get()
-            with self.locker:
-                if self.sent_data:
-                    self.timer.sepuku()
-            self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
+            if byte_string == b'g':
+                self.sent_data = False
+                self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
 
 if __name__ == "__main__":
     run_prog = master_thread()

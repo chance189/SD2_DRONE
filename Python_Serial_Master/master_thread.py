@@ -101,7 +101,7 @@ class master_thread:
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty():
             byte_string = self.recv_q.get()
-            if byte_string == b'g':
+            if byte_string == b'*':
                 self.sent_data = False
                 self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
 

@@ -7,9 +7,11 @@
 import queue
 import serial
 import threading
-from threading import Lock
+from threading import RLock
 import traceback
 import time
+import ctypes
+
 NACK = bytearray("INVALIDMSG", 'utf-8')  #Want 40 bit, so 10 char (account for CRC)
 
 class serial_thread(threading.Thread):

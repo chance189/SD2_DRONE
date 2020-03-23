@@ -12,8 +12,7 @@ import serial_thread
 import detect_pipe_pb2
 import tracked_object
 import traceback
-from threading import Lock
-import Timer_Mod
+from threading import RLock
 import sys
 import time
 
@@ -24,10 +23,10 @@ class master_thread:
         self.tx_q = queue.Queue()
         self.meta_data_pipe = queue.Queue()
         #init and start our threads
-        self.locker = Lock()
+        self.locker = RLock()
         self.init_threads()
         self.tracked_objs = {}
-        self.timer = None
+        self.timer = threading.Timer(2, self.timeout_rst)
         self.sent_data = False          #used for ensuring that
 
     def init_threads(self):
@@ -56,6 +55,11 @@ class master_thread:
         with self.locker:
             print(*a, **b)
 
+    def timeout_rst(self):
+        self.ts_print("Timeout Occurred!")
+        with self.locker:
+            self.sent_data = False
+
     def handle_new_metadata(self):
         if not self.meta_data_pipe.empty():
             self.ts_print("Handling new Metadata")
@@ -80,29 +84,32 @@ class master_thread:
                 pass
             else:
                 self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
-                self.sent_data = True
-            '''
-                if self.timer is None:
-                    self.timer = Timer_Mod.Timer_Mod(self)
+                #self.sent_data = True
                 
                 with self.locker:
                     self.sent_data = True
+                
+                if not self.timer.isAlive():
+                    try:
+                        self.timer = threading.Timer(2, self.timeout_rst)
+                        self.timer.start()
+                    except Exception as e:
+                        self.ts_print("Attempting to join!!!")
+                        self.timer.join()
+                        self.timer.start()
+                        self.ts_print("Successful joining!")
             
-                try:
-                    self.timer.start()
-                except Exception as e:
-                    self.ts_print("Attempting to join!!!")
-                    self.timer.join()
-                    self.timer.start()
-                    self.ts_print("Successful joining!")
-            '''
                 
     
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty():
             byte_string = self.recv_q.get()
             if byte_string == b'*':
-                self.sent_data = False
+                if self.timer.isAlive():   #only perform action if timer is active
+                    self.timer.cancel()    #received reply b4 timeout, kill the thread
+                    self.ts_print("Timer Killed")
+                    with self.locker:
+                        self.sent_data = False
                 self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
 
 if __name__ == "__main__":

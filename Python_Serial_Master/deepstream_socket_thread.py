@@ -11,7 +11,8 @@ import zmq                   #for socket
 import detect_pipe_pb2       #protobuffer unpacking
 import detections            #We need way to store and send value down queue
 import queue
-from threading import Lock
+import ctypes
+from threading import RLock
 
 class deepstream_socket_thread(threading.Thread):
     #Initialize the socket thread, requires an instance of the queue needed to send info

@@ -14,8 +14,8 @@ from detections import detections
 from math import *
 from threading import Lock
 
-centerX = 1366/2   #this is our width of screen divided by 2
-centerY = 768/2
+centerX = 1366/2  - 50  #this is our width of screen divided by 2
+centerY = 768/2   - 70
 width_drone = 3.9  #size of drone in inches
 
 class tracked_object:
@@ -95,8 +95,8 @@ class tracked_object:
             in order to calculate an angle
             '''
             inch_to_pixel = width_drone/self.detections[-1].get_W()
-            byte_X = (int)(degrees(atan2((self.x_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
-            byte_Y = (int)(degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+            byte_X = (int)(2.5*degrees(atan2((self.x_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+            byte_Y = (int)(2.5*degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
             print("Byte X: {0}, Byte Y: {1}".format(byte_X, byte_Y))
             print("x_mod_coord: {0}, y_mod_coord: {1}".format(self.x_mod_coord, self.y_mod_coord))
             print("Distance: {0}, Width in Bytes: {1}, ratio: {2}".format(self.detections[-1].get_dist(), self.detections[-1].get_W(), inch_to_pixel))
@@ -113,6 +113,7 @@ class tracked_object:
         bytes_to_send += byte_X
         bytes_to_send += byte_Y
         bytes_to_send += self.crc8(bytes_to_send)
+        #bytes_to_send = (127).to_bytes(1, byteorder="little", signed=True) + bytes_to_send
         return bytes_to_send
     
     #input of a bytearray

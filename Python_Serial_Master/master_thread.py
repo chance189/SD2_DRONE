@@ -15,6 +15,8 @@ import traceback
 from threading import RLock
 import sys
 import time
+import RPi.GPIO as GPIO
+import math
 
 class master_thread:
     def __init__(self):
@@ -26,8 +28,14 @@ class master_thread:
         self.locker = RLock()
         self.init_threads()
         self.tracked_objs = {}
-        self.timer = threading.Timer(2, self.timeout_rst)
+        self.timer = threading.Timer(1.5, self.timeout_rst)
         self.sent_data = False          #used for ensuring that
+       
+       #Setup GPIO for Jetson to fire laser
+        self.pin = 13  #Look up jetson J41 header, goes to pin 13 on board mode
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(self.pin, GPIO.OUT, initial=GPIO.LOW)
+        self.fire_timer = threading.Timer(1, self.timeout_fire)
 
     def init_threads(self):
         self.my_serial_thread = serial_thread.serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q, lock=self.locker)
@@ -55,6 +63,18 @@ class master_thread:
         with self.locker:
             print(*a, **b)
 
+    def fire_laser(self):
+        if self.fire_timer.isAlive():
+            self.fire_timer.cancel()
+        self.fire_timer = threading.Timer(1, self.timeout_fire)
+        self.fire_timer.start()
+        with self.locker:
+            GPIO.output(self.pin, GPIO.HIGH)
+
+    def timeout_fire(self):
+        with self.locker:
+            GPIO.output(self.pin, GPIO.LOW)
+
     def timeout_rst(self):
         self.ts_print("Timeout Occurred!")
         with self.locker:
@@ -62,36 +82,36 @@ class master_thread:
 
     def handle_new_metadata(self):
         if not self.meta_data_pipe.empty():
-            self.ts_print("Handling new Metadata")
+            #self.ts_print("Handling new Metadata")
             data = self.meta_data_pipe.get()
             if data.get_ID() in self.tracked_objs:
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
-                (x_c, y_c) = data.get_center_coord()
-                self.ts_print("The x center: {0}, the y center: {1}, sent_data: {2}".format(x_c, y_c, self.sent_data))
+                #(x_c, y_c) = data.get_center_coord()
+                #self.ts_print("The x center: {0}, the y center: {1}, sent_data: {2}".format(x_c, y_c, self.sent_data))
                 #self.ts_print("Added to ID: {0}".format(data.get_ID()))
             else:
                 #self.ts_print("Adding new ID: {0} to dictionary".format(data.get_ID()))
                 self.tracked_objs[data.get_ID()] = tracked_object.tracked_object(unique_id=data.get_ID(), locker=self.locker)
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
             
-            (velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
+            (servo_X, servo_Y, velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
+
+            if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2:
+                self.fire_laser()
+
             
-            #self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
-            #time.sleep(3)
-            #'''
             #Here lies my madness with dumb fucking timers
             if self.sent_data:
                 pass
             else:
                 self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
-                #self.sent_data = True
                 
                 with self.locker:
                     self.sent_data = True
                 
                 if not self.timer.isAlive():
                     try:
-                        self.timer = threading.Timer(2, self.timeout_rst)
+                        self.timer = threading.Timer(1.5, self.timeout_rst)
                         self.timer.start()
                     except Exception as e:
                         self.ts_print("Attempting to join!!!")
@@ -99,8 +119,6 @@ class master_thread:
                         self.timer.start()
                         self.ts_print("Successful joining!")
             
-                
-    
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty():
             byte_string = self.recv_q.get()
@@ -115,3 +133,4 @@ class master_thread:
 if __name__ == "__main__":
     run_prog = master_thread()
     run_prog.run_main_prog()
+    GPIO.cleanup()

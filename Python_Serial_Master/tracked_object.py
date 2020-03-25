@@ -44,6 +44,7 @@ class tracked_object:
             self.detections.append(detection)
             self.calc_velocity()
             self.calc_theta()
+            self.servo_degree_calc()
             #if self.locker:
                 #self.ts_print("Updated Stats for ID: {0}\nVelocity(ft/s): {1}\nAngle (degrees) {2}\nDistance: {3}".format(self.unique_id, self.velocity, self.theta, self.detections[-1].get_dist()))
 
@@ -53,19 +54,6 @@ class tracked_object:
             (x2, y2) = (self.detections[1].get_center_coord())  #index 1 is most recent
             dist = sqrt((x2-x1)**2 + (y2-y1)**2)                #Distance formula, find pixel diff
             self.velocity = dist/(self.detections[1].get_timeStamp() - self.detections[0].get_timeStamp())
-            if x2-centerX > 0:
-                self.dir_rl = "r"
-            elif x2-centerX < 0:
-                self.dir_rl = "l"
-            else:
-                self.dir_rl = "n"   #Neither
-
-            if y2-centerY > 0:
-                self.dir_ud = "d"  #if pos, then going in neg dir
-            elif y2-centerY < 0: 
-                self.dir_ud = "u"
-            else:
-                self.dir_ud = "n"
 
     #Using center of screen as reference point (size of camera is defined, so it will be 1/2 x, 1/2 y for coordinates
     #Need to find distance from center, and calculate it using atan2
@@ -78,37 +66,30 @@ class tracked_object:
 
         if len(self.detections) == 2:
             self.theta = degrees(math.atan2(self.y_mod_coord, self.x_mod_coord))
+    
+    def servo_degree_calc(self):
+        inch_to_pixel = width_drone/self.detections[-1].get_W()
+        self.servo_X_delta = (int)(2.5*degrees(atan2((self.x_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+        self.servo_Y_delta = (int)(2.5*degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+        #print("Byte X: {0}, Byte Y: {1}".format(self.servo_X_delta, self.servo_Y_delta))
+        #print("x_mod_coord: {0}, y_mod_coord: {1}".format(self.x_mod_coord, self.y_mod_coord))
+        #print("Distance: {0}, Width in Bytes: {1}, ratio: {2}".format(self.detections[-1].get_dist(), self.detections[-1].get_W(), inch_to_pixel))
 
     def grab_relevant_data(self):
-        return (self.grab_velocity(), self.grab_theta())
+        return (self.servo_X_delta, self.servo_Y_delta, self.grab_velocity(), self.grab_theta())
 
     def package_serial(self):
         #Send one byte for the panning, and one for the tilt, signed 8 bit number
         #want to catch the exceptions that we divide by 0
         try:
-            #byte_X = (int(self.y_mod_coord/tan(radians(self.theta)))%128).to_bytes(1, byteorder="little", signed=True)
-            #byte_Y = (int(tan(radians(self.theta))*self.x_mod_coord)%128).to_bytes(1, byteorder="little", signed=True)
-            '''
-            Some explanation:
-            Here we are making the relationship that the already calculated distance can be used
-            in conjunction with the size in pixels of the drone, assuming the drone's size is known,
-            in order to calculate an angle
-            '''
-            inch_to_pixel = width_drone/self.detections[-1].get_W()
-            byte_X = (int)(2.5*degrees(atan2((self.x_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
-            byte_Y = (int)(2.5*degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
-            print("Byte X: {0}, Byte Y: {1}".format(byte_X, byte_Y))
-            print("x_mod_coord: {0}, y_mod_coord: {1}".format(self.x_mod_coord, self.y_mod_coord))
-            print("Distance: {0}, Width in Bytes: {1}, ratio: {2}".format(self.detections[-1].get_dist(), self.detections[-1].get_W(), inch_to_pixel))
-            byte_X = (byte_X).to_bytes(1, byteorder="little", signed=True)
-            byte_Y = (byte_Y).to_bytes(1, byteorder="little", signed=True)
+            byte_X = (self.servo_X_delta).to_bytes(1, byteorder="little", signed=True)
+            byte_Y = (self.servo_Y_delta).to_bytes(1, byteorder="little", signed=True)
         except Exception as e:
             print(e)
             byte_X = (1).to_bytes(1, byteorder="little", signed=True)
             byte_Y = (1).to_bytes(1, byteorder="little", signed=True)
-        #bytes_to_send = bytearray()
-        #bytes_to_send += self.dir_rl.encode('utf8')
-        #bytes_to_send += bytearray(self.dir_ud, 'utf8')
+        print("Byte X: {0}, Byte Y: {1}".format(self.servo_X_delta, self.servo_Y_delta))
+        print("x_mod_coord: {0}, y_mod_coord: {1}".format(self.x_mod_coord, self.y_mod_coord))
         bytes_to_send = bytearray()
         bytes_to_send += byte_X
         bytes_to_send += byte_Y

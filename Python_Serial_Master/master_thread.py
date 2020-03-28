@@ -17,9 +17,15 @@ import sys
 import time
 import RPi.GPIO as GPIO
 import math
+from PyQt5.QtCore import QThread, Qt, pyqtSignal, pyqtSlot
 
-class master_thread:
+class master_thread(QThread):
+    #Oh lordy look at all those signals
+    change_vel = pyqtSignal(float)
+    change_dist = pyqtSignal(float)
+    change_status = pyqtSignal('QString')
     def __init__(self):
+        QThread.__init__(self)
         #init all queues (remember they are thread safe in python)
         self.recv_q = queue.Queue()
         self.tx_q = queue.Queue()
@@ -31,11 +37,9 @@ class master_thread:
         self.timer = threading.Timer(1.5, self.timeout_rst)
         self.sent_data = False          #used for ensuring that
        
-       #Setup GPIO for Jetson to fire laser
-        self.pin = 13  #Look up jetson J41 header, goes to pin 13 on board mode
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(self.pin, GPIO.OUT, initial=GPIO.LOW)
+        #Note to self, GPIO does not yield high enough voltage to drive our laser
         self.fire_timer = threading.Timer(1, self.timeout_fire)
+        self.status = "IDLE"
 
     def init_threads(self):
         self.my_serial_thread = serial_thread.serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q, lock=self.locker)
@@ -51,7 +55,7 @@ class master_thread:
             self.ts_print("Exception in socket thread")
             traceback.print_exc(file=sys.stdout)
     
-    def run_main_prog(self):
+    def run(self):
         self.ts_print("In main thread")
         while(True):
             #do stuff
@@ -69,11 +73,13 @@ class master_thread:
         self.fire_timer = threading.Timer(1, self.timeout_fire)
         self.fire_timer.start()
         with self.locker:
-            GPIO.output(self.pin, GPIO.HIGH)
+            self.status = "FIRING"
+            self.change_status.emit(self.status)
 
     def timeout_fire(self):
         with self.locker:
-            GPIO.output(self.pin, GPIO.LOW)
+            self.status = "IDLE"
+            self.change_status.emit(self.status)
 
     def timeout_rst(self):
         self.ts_print("Timeout Occurred!")
@@ -95,6 +101,13 @@ class master_thread:
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
             
             (servo_X, servo_Y, velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
+            self.change_vel.emit(velocity)
+            self.change_dist.emit(data.get_dist())
+            
+            with self.locker:
+                if self.status == "IDLE":
+                    self.status = "TRACKING"
+                    self.change_status.emit(self.status)
 
             if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2:
                 self.fire_laser()
@@ -130,7 +143,9 @@ class master_thread:
                         self.sent_data = False
                 self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
 
+'''
 if __name__ == "__main__":
     run_prog = master_thread()
     run_prog.run_main_prog()
     GPIO.cleanup()
+'''

@@ -1,4 +1,4 @@
-SRCDIR = /home/chance/Desktop/Drone_Detector/Protobuffers
+SRCDIR = /home/chance/Desktop/SD2_DRONE/Protobuffers
 SVDIR = ../
 
 create_proto:

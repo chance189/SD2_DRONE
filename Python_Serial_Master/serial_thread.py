@@ -34,7 +34,8 @@ class serial_thread(threading.Thread):
             if not self.tx_q.empty():
                 transmit = self.tx_q.get();
                 transmit += self.crc8(transmit)
-                self.ts_print("We sent: {0}, at {1}".format(transmit, time.time()))
+                #transmit = (int(0x7F).to_bytes(1, byteorder="little", signed="False")) + transmit #add start byte
+                self.ts_print("We sent: {0}, #b: {1}, at {2}".format(transmit, len(transmit), time.time()))
                 self.serial_conn.write(transmit)
                 self.lms = transmit
             if self.serial_conn.in_waiting > 0:

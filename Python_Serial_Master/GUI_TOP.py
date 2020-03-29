@@ -10,6 +10,7 @@ from PyQt5.QtGui import QImage, QPixmap, QWindow, QTextCursor
 from master_thread import master_thread
 import sys
 import time
+import math
 
 class GUI_TOP(QMainWindow):
 
@@ -37,7 +38,7 @@ class GUI_TOP(QMainWindow):
         a stupid insult to all of this program's users.
         ''' 
         self.init_threads()
-        self.window_id = int("03400001", 16)
+        self.window_id = int("03200001", 16)
 
         self.window = QWindow.fromWinId(self.window_id)
         self.ui.Deepstream_Window = QWidget.createWindowContainer(self.window, self)
@@ -47,21 +48,40 @@ class GUI_TOP(QMainWindow):
         self.ui.Deepstream_Window.setMaximumSize(16777215, 16777215)
         self.ui.Deepstream_Window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.ui.time_updates.setReadOnly(True)
+        self.ui.time_updates.setMaximumBlockCount(50)
         
     def init_threads(self):
+        #init
         self.master = master_thread()
+        #tie slots to signals
         self.master.change_vel.connect(self.update_velocity)
         self.master.change_dist.connect(self.update_dist)
         self.master.change_status.connect(self.update_status)
+        self.master.update_reporting.connect(self.update_coords)
+        self.master.change_drone_id.connect(self.update_drone_id)
+        #start
         self.master.start()
+
+    #Simple rounding, shift number to int and round using ceil, shift back
+    def round(self, in_val , shift_val=0):
+        shift_num = 10**shift_val
+        return math.ceil(in_val*shift_num)/shift_num   #shift left (multiply) then shift back
+
+
+    '''
+    * Slots below this line
+    '''
+    @pyqtSlot(int)
+    def handle_hide_menu(int):
+        pass  #idk hide it dawg
 
     @pyqtSlot(float)
     def update_velocity(self, vel):
-        self.ui.vel_value.setText("{0:.4f}".format(vel))
+        self.ui.vel_value.setText("{:0>8}".format(self.round(vel, 4)))
 
     @pyqtSlot(float)
     def update_dist(self, dist):
-        self.ui.dist_value.setText("{0:.4f}".format(dist))
+        self.ui.dist_value.setText("{:0>8}".format(self.round(dist, 4)))
 
     @pyqtSlot('QString')
     def update_status(self, status):
@@ -75,10 +95,15 @@ class GUI_TOP(QMainWindow):
         self.ui.status_label.setText(status)
 
     @pyqtSlot(int, int, int, int)
-    def update_coords(x_pixel, y_pixel, x_angle, y_angle):
-        insert_str = "{0}: X-Pixel: {1}, Y-Pixel: {2}, X-angle: {3}, Y-angle: {4}".format(time.time(), x_pixel, y_pixel, x_angle, y_angle)
+    def update_coords(self, x_pixel, y_pixel, x_angle, y_angle):
+        insert_str = "{0}: X-Pixel: {1:04d}, Y-Pixel: {2:04d}, X-angle: {3:03d}, Y-angle: {4:03d}\n".format(time.time(), x_pixel, y_pixel, x_angle, y_angle)
         self.ui.time_updates.moveCursor(QTextCursor.Start)
         temp_str = self.ui.time_updates.insertPlainText(insert_str)
+
+    @pyqtSlot(int)
+    def update_drone_id(self, drone_id):
+        self.ui.drone_id_val.setText("{0}".format(drone_id))
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = GUI_TOP()

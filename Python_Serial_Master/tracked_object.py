@@ -52,7 +52,8 @@ class tracked_object:
         if len(self.detections) == 2:
             (x1, y1) = (self.detections[0].get_center_coord())  #push from right, so
             (x2, y2) = (self.detections[1].get_center_coord())  #index 1 is most recent
-            dist = sqrt((x2-x1)**2 + (y2-y1)**2)                #Distance formula, find pixel diff
+            inch_to_pixel = width_drone/((self.detections[0].get_W() + self.detections[1].get_W())/2)
+            dist = sqrt((x2-x1)**2 + (y2-y1)**2)*inch_to_pixel  #Distance formula, convert to inches
             self.velocity = dist/(self.detections[1].get_timeStamp() - self.detections[0].get_timeStamp())
 
     #Using center of screen as reference point (size of camera is defined, so it will be 1/2 x, 1/2 y for coordinates

@@ -4,11 +4,12 @@
 # Note: I'm so sorry.
 '''
 from GUI_UI import *  #because why select what you need? We are american after all, TAKE IT ALL
-from PyQt5.QtWidgets import QWidget, QLabel, QApplication, QMainWindow, QVBoxLayout, QSizePolicy
+from PyQt5.QtWidgets import QWidget, QLabel, QApplication, QMainWindow, QVBoxLayout, QSizePolicy, QPlainTextEdit
 from PyQt5.QtCore import QThread, Qt, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QImage, QPixmap, QWindow
+from PyQt5.QtGui import QImage, QPixmap, QWindow, QTextCursor
 from master_thread import master_thread
 import sys
+import time
 
 class GUI_TOP(QMainWindow):
 
@@ -17,7 +18,7 @@ class GUI_TOP(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        #Tie some some outputs to these things
+        #Tie action socket for toggling menu
 
         '''
         **** Here lies my great shame ****
@@ -36,7 +37,7 @@ class GUI_TOP(QMainWindow):
         a stupid insult to all of this program's users.
         ''' 
         self.init_threads()
-        self.window_id = int("03e00001", 16)
+        self.window_id = int("03400001", 16)
 
         self.window = QWindow.fromWinId(self.window_id)
         self.ui.Deepstream_Window = QWidget.createWindowContainer(self.window, self)
@@ -45,6 +46,7 @@ class GUI_TOP(QMainWindow):
         self.ui.Deepstream_Window.setMinimumSize(400, 400)
         self.ui.Deepstream_Window.setMaximumSize(16777215, 16777215)
         self.ui.Deepstream_Window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.ui.time_updates.setReadOnly(True)
         
     def init_threads(self):
         self.master = master_thread()
@@ -72,7 +74,11 @@ class GUI_TOP(QMainWindow):
 
         self.ui.status_label.setText(status)
 
-
+    @pyqtSlot(int, int, int, int)
+    def update_coords(x_pixel, y_pixel, x_angle, y_angle):
+        insert_str = "{0}: X-Pixel: {1}, Y-Pixel: {2}, X-angle: {3}, Y-angle: {4}".format(time.time(), x_pixel, y_pixel, x_angle, y_angle)
+        self.ui.time_updates.moveCursor(QTextCursor.Start)
+        temp_str = self.ui.time_updates.insertPlainText(insert_str)
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     win = GUI_TOP()

@@ -74,6 +74,10 @@ class master_thread(QThread):
         self.fire_timer.start()
         with self.locker:
             self.status = "FIRING"
+            fire_word = bytearray()
+            fire_word += (int("F1",16)).to_bytes(1, byteorder="little", signed=False)
+            fire_word += (int("7E", 16)).to_bytes(1, byteorder="little", signed=False)
+            self.tx_q.put(fire_word)
             self.change_status.emit(self.status)
 
     def timeout_fire(self):
@@ -109,7 +113,7 @@ class master_thread(QThread):
                     self.status = "TRACKING"
                     self.change_status.emit(self.status)
 
-            if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2:
+            if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2 and not self.fire_timer.isAlive():
                 self.fire_laser()
 
             

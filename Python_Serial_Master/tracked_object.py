@@ -93,20 +93,5 @@ class tracked_object:
         bytes_to_send = bytearray()
         bytes_to_send += byte_X
         bytes_to_send += byte_Y
-        bytes_to_send += self.crc8(bytes_to_send)
         #bytes_to_send = (127).to_bytes(1, byteorder="little", signed=True) + bytes_to_send
         return bytes_to_send
-    
-    #input of a bytearray
-    def crc8(self, bytes_in, poly=0xE0):
-        crc = 0xFF
-        for byte in bytes_in:
-            cur_byte = 0xFF & byte
-            for _ in range(0, 8):
-                if (crc & 0x01) ^ (cur_byte & 0x01):
-                    crc = (crc >> 1) ^ poly
-                else:
-                    crc >>= 1
-                cur_byte >>= 1
-        return (crc & 0xFF).to_bytes(1, byteorder="little", signed=False)
-

@@ -12,7 +12,7 @@ import traceback
 import time
 import ctypes
 
-NACK = bytearray("INVALIDMSG", 'utf-8')  #Want 40 bit, so 10 char (account for CRC)
+NACK = b'~'  #simple 1 byte agreement that isn't used in my debug statements
 
 class serial_thread(threading.Thread):
     #Sanity check here
@@ -24,27 +24,28 @@ class serial_thread(threading.Thread):
         self.recv_q = recv_queue
         self.tx_q = tx_queue
         self.open_serial_port()
-        self.lms = None                 #Last message sent
         self.print_locker = lock      #thread safe writes
         self.ts_print("Serial Port Init")
     
     def run(self):
         self.ts_print("in Serial Thread")
         while(True):
+            if self.serial_conn.in_waiting > 0:
+                rx = self.serial_conn.read(1)                        #expect a 1 byte word
+                if rx == NACK:
+                    self.ts_print("NACK RX!")
+                    if self.serial_conn.out_waiting != 0:
+                        self.ts_print("{0} bytew were in output buffer! Clearing!".format(serial_conn.out_waiting))
+                    self.serial_conn.reset_output_buffer()    #reset the output
+                else:
+                    self.recv_q.put(rx)
+
             if not self.tx_q.empty():
                 transmit = self.tx_q.get();
                 transmit += self.crc8(transmit)
                 #transmit = (int(0x7F).to_bytes(1, byteorder="little", signed="False")) + transmit #add start byte
                 self.ts_print("We sent: {0}, #b: {1}, at {2}".format(transmit, len(transmit), time.time()))
                 self.serial_conn.write(transmit)
-                self.lms = transmit
-            if self.serial_conn.in_waiting > 0:
-                rx = self.serial_conn.read(1)                        #expect a 2 byte word
-                if rx == NACK:
-                    self.write(lms)
-                self.recv_q.put(rx)
-                #elif self.calc_CRC8 != rx[4]:       #check CRC
-                    #self.write(NACK)                #Notify Arduino CRC mismatch
 
     def ts_print(self, *a, **b):   #threadsafe way to print data
         with self.print_locker:

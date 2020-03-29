@@ -15,7 +15,7 @@ from math import *
 from threading import Lock
 
 centerX = 1366/2  - 50  #this is our width of screen divided by 2
-centerY = 768/2   - 70
+centerY = 768/2   - 120
 width_drone = 3.9  #size of drone in inches
 
 class tracked_object:

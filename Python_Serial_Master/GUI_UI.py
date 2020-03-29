@@ -153,9 +153,7 @@ class Ui_MainWindow(object):
         self.vel_value.setText(_translate("MainWindow", "0.00"))
         self.vel_label.setText(_translate("MainWindow", "<html><head/><body><p><span style=\" color:#ffffff;\">Velocity (inches/sec)</span></p></body></html>"))
         self.text_edit_label.setText(_translate("MainWindow", "Timestamp Updates"))
-        self.time_updates.setPlainText(_translate("MainWindow", "Timestamp: (700,1000)\n"
-"\n"
-""))
+        self.time_updates.setPlainText(_translate("MainWindow", "Status Updates"))
         self.menu_adv.setTitle(_translate("MainWindow", "Advanced"))
         self.actionHide_Status.setText(_translate("MainWindow", "Hide Status"))
         self.actionHide_Status.setShortcut(_translate("MainWindow", "Ctrl+S"))

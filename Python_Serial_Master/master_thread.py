@@ -26,6 +26,7 @@ class master_thread(QThread):
     change_status = pyqtSignal('QString')
     update_reporting = pyqtSignal(int, int, int, int)
     change_drone_id = pyqtSignal(int)
+    lost_drone = pyqtSignal(int)
 
     def __init__(self):
         QThread.__init__(self)
@@ -43,6 +44,7 @@ class master_thread(QThread):
         #Note to self, GPIO does not yield high enough voltage to drive our laser
         self.fire_timer = threading.Timer(1, self.timeout_fire)
         self.status = "IDLE"
+        self.tracked_timers = {}
 
     def init_threads(self):
         self.my_serial_thread = serial_thread.serial_thread(recv_queue=self.recv_q, tx_queue=self.tx_q, lock=self.locker)
@@ -73,8 +75,7 @@ class master_thread(QThread):
     def fire_laser(self):
         if self.fire_timer.isAlive():
             self.fire_timer.cancel()
-        self.fire_timer = threading.Timer(1, self.timeout_fire)
-        self.fire_timer.start()
+        
         with self.locker:
             self.status = "FIRING"
             fire_word = bytearray()
@@ -82,11 +83,22 @@ class master_thread(QThread):
             fire_word += (int("7E", 16)).to_bytes(1, byteorder="little", signed=False)
             self.tx_q.put(fire_word)
             self.change_status.emit(self.status)
+        self.fire_timer = threading.Timer(1, self.timeout_fire)
+        self.fire_timer.start()
 
     def timeout_fire(self):
         with self.locker:
             self.status = "IDLE"
             self.change_status.emit(self.status)
+    
+    def timeout_track(self, id_drone):
+        with self.locker:
+            self.status = "IDLE"
+        self.ts_print("TIMEOUT TRACKED!")
+        self.lost_drone.emit(id_drone)
+        #remove it from our dictionaries
+        del self.tracked_objs[id_drone]
+        del self.tracked_timers[id_drone]
 
     def timeout_rst(self):
         self.ts_print("Timeout Occurred!")
@@ -100,6 +112,7 @@ class master_thread(QThread):
             if data.get_ID() in self.tracked_objs:
                 #update new coordinate for drone we are tracking
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
+                self.tracked_timers[data.get_ID()].cancel()
                 #(x_c, y_c) = data.get_center_coord()
                 #self.ts_print("The x center: {0}, the y center: {1}, sent_data: {2}".format(x_c, y_c, self.sent_data))
                 #self.ts_print("Added to ID: {0}".format(data.get_ID()))
@@ -112,6 +125,10 @@ class master_thread(QThread):
                 #add the new drone ID to our dictionary
                 self.tracked_objs[data.get_ID()] = tracked_object.tracked_object(unique_id=data.get_ID(), locker=self.locker)
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
+
+            #remake timer for data we received
+            self.tracked_timers[data.get_ID()] = threading.Timer(4, self.timeout_track, [data.get_ID()])
+            self.tracked_timers[data.get_ID()].start()
             
             (servo_X, servo_Y, velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
             (x_c, y_c) = data.get_center_coord()

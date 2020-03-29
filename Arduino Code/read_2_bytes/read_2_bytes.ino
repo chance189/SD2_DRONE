@@ -17,8 +17,9 @@ byte inBytes [3];
 int in_byte;
 int inByte0, inByte1;
 volatile int int_curr_val = 0;     //lets us know how many times we've rolled over
+byte start_byte = 0x7F;
+
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(9600);
   pinMode(laserPin, OUTPUT);
   panServo.attach(9);
@@ -28,18 +29,18 @@ void setup() {
   tiltServo.write(tiltPos);
   panServo.write(panPos);
 
-  // Turn laser on
+  // Set the laser pin to low initially
   digitalWrite(laserPin, LOW);
 
   //Initalize Timer for interrupt
   cli();      //stop interrutps
   TCCR0A = 0; //set associated timer regs to 0
   TCNT0  = 0; //^^
-  OCR0A = 255;                        // = 16MHz/1024(prescaler) - 1
-  TCCR0B = (1 << WGM02);               // turn on CTC mode
+  OCR0A = 255;                          // = 16MHz/1024(prescaler) - 1
+  TCCR0B = (1 << WGM02);                // turn on CTC mode
   TCCR0B |= (1 << CS02) | (1 << CS00);  // Set CS02 and CS00 bits for 1028 (pg169) of atmega datasheet (this prescaler is same for timer 1,3,4)
   TIMSK0 &= ~(1 << OCIE0A);             // disable the timer interrupt
-  sei(); //enable interrupts
+  sei();                                //enable interrupts
   Serial.println("BOOTUP FINISHED");
 }
 
@@ -50,15 +51,21 @@ void loop() {
 /***
  * Func: handle_serial_info
  * params: null
- * Purpose: handles information from serial as it becomes available (on a byte per byte basis)
- *          function handles state in a rudimentary fashion through switch case. Handle each byte
- *          input as it comes through, and update variables as necessary once CRC checks out.
+ * Purpose: handles information from serial as it becomes available. A start byte is used to determine
+ *      if in the right state. If the byte is invalid, then keep polling serial. If valid input comes
+ *      through, then the CRC is checked (3rd byte, or byte 2). Bad CRC means no dice.
+ *      God have mercy on my tainted soul. The whispers... They tell me my timers will fail me... The horror
  *         
  */
 void handle_serial_info()
 {
   if (Serial.available()) {
-
+//    inBytes[0] = 0;
+//    while(inBytes[0] != start_byte) { 
+//      Serial.readBytes(inBytes, 1); 
+//      Serial.println("START!");
+//      }
+//    wait_for_bytes(
     while (Serial.available() < 3) {} // Wait 'till there are 3 Bytes waiting
     // Once it's ready read it in...
     Serial.readBytes(inBytes, 3);
@@ -69,9 +76,10 @@ void handle_serial_info()
     if(crc8.get_crc() != inBytes[2])  //CRC Mismatch
     {
       Serial.println("BAD CRC MATCH!!! RECV: " + String(inBytes[2], HEX));
-      Serial.println("RECV: " + String(inBytes[0], DEC) + " " + String(inBytes[1], DEC));
+      Serial.println("RECV: " + String(inBytes[0], HEX) + " " + String(inBytes[1], HEX));
       //delay(100);
-      //input_buffer_flush();
+      input_buffer_flush();
+      Serial.write("~");      //The agree Nack
     }
     else {
       //Serial.println("CRC MATCH! " + String(inBytes[2], HEX));
@@ -104,12 +112,13 @@ void handle_serial_info()
         tiltServo.write(tiltPos);
         Serial.println("Tilting to: " + String(tiltPos, DEC));
         panServo.write(panPos);
-        //Serial.write("*");
+        
       }
+      Serial.write("*");
     }
 
     // Send Ack
-    Serial.write("*");
+    //Serial.write("*");
   }
 }
 
@@ -143,9 +152,7 @@ ISR(TIMER0_COMPA_vect) {
     int_curr_val+=1;
     //Serial.println("counter incr: " + String(int_curr_val, DEC));
   }
-  
 }
-
 void input_buffer_flush() {
   while(Serial.available()) {
     Serial.read();

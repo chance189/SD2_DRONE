@@ -24,6 +24,9 @@ class master_thread(QThread):
     change_vel = pyqtSignal(float)
     change_dist = pyqtSignal(float)
     change_status = pyqtSignal('QString')
+    update_reporting = pyqtSignal(int, int, int, int)
+    change_drone_id = pyqtSignal(int)
+
     def __init__(self):
         QThread.__init__(self)
         #init all queues (remember they are thread safe in python)
@@ -74,6 +77,10 @@ class master_thread(QThread):
         self.fire_timer.start()
         with self.locker:
             self.status = "FIRING"
+            fire_word = bytearray()
+            fire_word += (int("F1",16)).to_bytes(1, byteorder="little", signed=False)
+            fire_word += (int("7E", 16)).to_bytes(1, byteorder="little", signed=False)
+            self.tx_q.put(fire_word)
             self.change_status.emit(self.status)
 
     def timeout_fire(self):
@@ -91,46 +98,54 @@ class master_thread(QThread):
             #self.ts_print("Handling new Metadata")
             data = self.meta_data_pipe.get()
             if data.get_ID() in self.tracked_objs:
+                #update new coordinate for drone we are tracking
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
                 #(x_c, y_c) = data.get_center_coord()
                 #self.ts_print("The x center: {0}, the y center: {1}, sent_data: {2}".format(x_c, y_c, self.sent_data))
                 #self.ts_print("Added to ID: {0}".format(data.get_ID()))
             else:
                 #self.ts_print("Adding new ID: {0} to dictionary".format(data.get_ID()))
+                #if not tracking, then we should update GUI that we are going to track the new drone
+                with self.locker:
+                    if self.status == "IDLE":
+                        self.change_drone_id.emit(data.get_ID())
+                #add the new drone ID to our dictionary
                 self.tracked_objs[data.get_ID()] = tracked_object.tracked_object(unique_id=data.get_ID(), locker=self.locker)
                 self.tracked_objs[data.get_ID()].update_coordinates(data)
             
             (servo_X, servo_Y, velocity, theta) = self.tracked_objs[data.get_ID()].grab_relevant_data()
+            (x_c, y_c) = data.get_center_coord()
+
             self.change_vel.emit(velocity)
             self.change_dist.emit(data.get_dist())
-            
+            self.update_reporting.emit(x_c, y_c, servo_X, servo_Y)
+
             with self.locker:
                 if self.status == "IDLE":
                     self.status = "TRACKING"
                     self.change_status.emit(self.status)
 
-            if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2:
+            if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2 and not self.fire_timer.isAlive():
                 self.fire_laser()
-
-            
-            #Here lies my madness with dumb fucking timers
-            if self.sent_data:
-                pass
-            else:
-                self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
+            else: 
+                #Here lies my madness with dumb fucking timers
+                if self.sent_data:
+                    pass
+                else:
+                    self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
                 
-                with self.locker:
-                    self.sent_data = True
+                    with self.locker:
+                        self.sent_data = True
                 
-                if not self.timer.isAlive():
-                    try:
-                        self.timer = threading.Timer(1.5, self.timeout_rst)
-                        self.timer.start()
-                    except Exception as e:
-                        self.ts_print("Attempting to join!!!")
-                        self.timer.join()
-                        self.timer.start()
-                        self.ts_print("Successful joining!")
+                    if not self.timer.isAlive():
+                        try:
+                            self.timer = threading.Timer(1.5, self.timeout_rst)
+                            self.timer.start()
+                        except Exception as e:
+                            self.ts_print("Attempting to join!!!")
+                            self.timer.join()
+                            self.timer.start()
+                            self.ts_print("Successful joining!")
             
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty():

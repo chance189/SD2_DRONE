@@ -52,7 +52,8 @@ class tracked_object:
         if len(self.detections) == 2:
             (x1, y1) = (self.detections[0].get_center_coord())  #push from right, so
             (x2, y2) = (self.detections[1].get_center_coord())  #index 1 is most recent
-            dist = sqrt((x2-x1)**2 + (y2-y1)**2)                #Distance formula, find pixel diff
+            inch_to_pixel = width_drone/((self.detections[0].get_W() + self.detections[1].get_W())/2)
+            dist = sqrt((x2-x1)**2 + (y2-y1)**2)*inch_to_pixel  #Distance formula, convert to inches
             self.velocity = dist/(self.detections[1].get_timeStamp() - self.detections[0].get_timeStamp())
 
     #Using center of screen as reference point (size of camera is defined, so it will be 1/2 x, 1/2 y for coordinates
@@ -93,20 +94,5 @@ class tracked_object:
         bytes_to_send = bytearray()
         bytes_to_send += byte_X
         bytes_to_send += byte_Y
-        bytes_to_send += self.crc8(bytes_to_send)
         #bytes_to_send = (127).to_bytes(1, byteorder="little", signed=True) + bytes_to_send
         return bytes_to_send
-    
-    #input of a bytearray
-    def crc8(self, bytes_in, poly=0xE0):
-        crc = 0xFF
-        for byte in bytes_in:
-            cur_byte = 0xFF & byte
-            for _ in range(0, 8):
-                if (crc & 0x01) ^ (cur_byte & 0x01):
-                    crc = (crc >> 1) ^ poly
-                else:
-                    crc >>= 1
-                cur_byte >>= 1
-        return (crc & 0xFF).to_bytes(1, byteorder="little", signed=False)
-

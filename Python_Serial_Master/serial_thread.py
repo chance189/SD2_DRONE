@@ -33,11 +33,10 @@ class serial_thread(threading.Thread):
         while(True):
             if not self.tx_q.empty():
                 transmit = self.tx_q.get();
-                self.ts_print("We sent: {0}, at {1}".format(transmit, time.time()))
-                #transmit.append(self.calc_CRC8(transmit))
+                transmit += self.crc8(transmit)
+                #transmit = (int(0x7F).to_bytes(1, byteorder="little", signed="False")) + transmit #add start byte
+                self.ts_print("We sent: {0}, #b: {1}, at {2}".format(transmit, len(transmit), time.time()))
                 self.serial_conn.write(transmit)
-                #self.serial_conn.write(transmit[0].encode('utf8'))
-                #self.serial_conn.write(transmit[1].encode('utf8'))
                 self.lms = transmit
             if self.serial_conn.in_waiting > 0:
                 rx = self.serial_conn.read(1)                        #expect a 2 byte word
@@ -64,8 +63,18 @@ class serial_thread(threading.Thread):
             print("Serial Connection Failed")
             print(traceback.format_exc())
 
-    def calc_CRC8(inByteString, CRC):
-        return "This isn't done yet"
+    #input of a bytearray
+    def crc8(self, bytes_in, poly=0xE0):
+        crc = 0xFF
+        for byte in bytes_in:
+            cur_byte = 0xFF & byte
+            for _ in range(0, 8):
+                if (crc & 0x01) ^ (cur_byte & 0x01):
+                    crc = (crc >> 1) ^ poly
+                else:
+                    crc >>= 1
+                cur_byte >>= 1
+        return (crc & 0xFF).to_bytes(1, byteorder="little", signed=False)
     
     def get_id(self):
         if hasattr(self, '_thread_id'):

@@ -70,8 +70,8 @@ class tracked_object:
     
     def servo_degree_calc(self):
         inch_to_pixel = width_drone/self.detections[-1].get_W()
-        self.servo_X_delta = (int)(2.5*degrees(atan2((self.x_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
-        self.servo_Y_delta = (int)(2.5*degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+        self.servo_X_delta = (int)(1*degrees(atan2((self.x_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
+        self.servo_Y_delta = (int)(1*degrees(atan2((self.y_mod_coord*inch_to_pixel), self.detections[-1].get_dist())))
         #print("Byte X: {0}, Byte Y: {1}".format(self.servo_X_delta, self.servo_Y_delta))
         #print("x_mod_coord: {0}, y_mod_coord: {1}".format(self.x_mod_coord, self.y_mod_coord))
         #print("Distance: {0}, Width in Bytes: {1}, ratio: {2}".format(self.detections[-1].get_dist(), self.detections[-1].get_W(), inch_to_pixel))

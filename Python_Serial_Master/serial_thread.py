@@ -37,8 +37,7 @@ class serial_thread(threading.Thread):
                     if self.serial_conn.out_waiting != 0:
                         self.ts_print("{0} bytew were in output buffer! Clearing!".format(serial_conn.out_waiting))
                     self.serial_conn.reset_output_buffer()    #reset the output
-                else:
-                    self.recv_q.put(rx)
+                self.recv_q.put(rx)
 
             if not self.tx_q.empty():
                 transmit = self.tx_q.get();

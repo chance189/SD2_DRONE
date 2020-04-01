@@ -40,6 +40,7 @@ class master_thread(QThread):
         self.tracked_objs = {}
         self.timer = threading.Timer(1.5, self.timeout_rst)
         self.sent_data = False          #used for ensuring that
+        self.nack_reset = False
        
         #Note to self, GPIO does not yield high enough voltage to drive our laser
         self.fire_timer = threading.Timer(1, self.timeout_fire)
@@ -90,6 +91,10 @@ class master_thread(QThread):
         with self.locker:
             self.status = "IDLE"
             self.change_status.emit(self.status)
+
+    def timeout_nack(self):
+        with self.locker:
+            self.nack_reset = False
     
     def timeout_track(self, id_drone):
         with self.locker:
@@ -142,11 +147,11 @@ class master_thread(QThread):
                     self.status = "TRACKING"
                     self.change_status.emit(self.status)
 
-            if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2 and not self.fire_timer.isAlive():
+            if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2 and not self.fire_timer.isAlive() and not self.nack_reset:
                 self.fire_laser()
             else: 
                 #Here lies my madness with dumb fucking timers
-                if self.sent_data:
+                if self.sent_data or self.nack_reset:
                     pass
                 else:
                     self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
@@ -173,7 +178,21 @@ class master_thread(QThread):
                     self.ts_print("Timer Killed")
                     with self.locker:
                         self.sent_data = False
-                self.ts_print("Arduino sent bytestring: {0}".format(byte_string))
+                self.ts_print("RECEIVED ACK: {0}".format(byte_string))
+            elif byte_string == b'~':     #nack received, halt all comms
+                with self.locker:
+                    self.nack_reset = True
+                self.ts_print("RECEIVED NACK: {0}, HALTING".format(byte_string))
+                self.nack_timer = threading.Timer(2, self.timeout_nack)
+                self.nack_timer.start()
+            elif byte_string == b'^':
+                if self.nack_timer is not None:
+                    if self.nack_timer.isAlive():
+                        self.nack_timer.cancel()
+                        with self.locker:
+                            self.nack_reset = False
+                        self.ts_print("Killing nack timer!")
+                self.ts_print("RESTARTING COMMUNICATIONS!")
 
 '''
 if __name__ == "__main__":

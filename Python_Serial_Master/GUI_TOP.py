@@ -38,9 +38,9 @@ class GUI_TOP(QMainWindow):
         a stupid insult to all of this program's users.
         ''' 
         self.init_threads()
-        self.window_id = int("03200001", 16)
+        self.window_id = int("03600001", 16)
         
-        '''
+        #'''
         self.window = QWindow.fromWinId(self.window_id)
         self.ui.Deepstream_Window = QWidget.createWindowContainer(self.window, self)
         self.ui.Deepstream_Window.setObjectName("Deepstream_Window")
@@ -48,7 +48,7 @@ class GUI_TOP(QMainWindow):
         self.ui.Deepstream_Window.setMinimumSize(400, 400)
         self.ui.Deepstream_Window.setMaximumSize(16777215, 16777215)
         self.ui.Deepstream_Window.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        '''
+        #'''
         self.ui.time_updates.setReadOnly(True)
         self.ui.time_updates.setMaximumBlockCount(50)
         

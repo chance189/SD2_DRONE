@@ -79,7 +79,10 @@ void handle_serial_info()
       Serial.println("RECV: " + String(inBytes[0], HEX) + " " + String(inBytes[1], HEX));
       //delay(100);
       input_buffer_flush();
-      Serial.write("~");      //The agree Nack
+      Serial.write("~");      //Nack, denoting master should not send any info
+      delay(200);             //300ms delay    
+      input_buffer_flush();   //flush all input buffer
+      Serial.write("^");      //Write ready for resetting comms
     }
     else {
       //Serial.println("CRC MATCH! " + String(inBytes[2], HEX));

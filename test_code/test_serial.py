@@ -14,4 +14,4 @@ while True:
     ser.write("f".encode("ascii"))
     val = ser.read(1)
     print("Sent: {0}, Rx: {1}".format("f".encode("ascii"), val))
-    time.sleep(2)
+    time.sleep(0.5)

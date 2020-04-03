@@ -11,13 +11,13 @@ int panPos = 90;      // variable to store the servo position
 int laserPin = 13;
 
 /*** vars for serial state ***/
-int state, cntr = 0;
-bool read_in_prog;        // Denotes that a read is currently being performed
+int cntr = 0;
+bool read_in_prog = false;        // Denotes that a read is currently being performed
 byte inBytes [3];   
-int in_byte;
 int inByte0, inByte1;
 volatile int int_curr_val = 0;     //lets us know how many times we've rolled over
 byte start_byte = 0x7F;
+byte end_byte = 0x80;
 
 void setup() {
   Serial.begin(9600);
@@ -59,70 +59,82 @@ void loop() {
  */
 void handle_serial_info()
 {
-  if (Serial.available()) {
-//    inBytes[0] = 0;
-//    while(inBytes[0] != start_byte) { 
-//      Serial.readBytes(inBytes, 1); 
-//      Serial.println("START!");
-//      }
-//    wait_for_bytes(
-    while (Serial.available() < 3) {} // Wait 'till there are 3 Bytes waiting
-    // Once it's ready read it in...
-    Serial.readBytes(inBytes, 3);
-    crc8.reset();
-    crc8.next(inBytes[0]);
-    crc8.next(inBytes[1]);
+  if(Serial.available() > 0) {
+    byte in_byte = Serial.read();
 
-    if(crc8.get_crc() != inBytes[2])  //CRC Mismatch
-    {
-      Serial.println("BAD CRC MATCH!!! RECV: " + String(inBytes[2], HEX));
-      Serial.println("RECV: " + String(inBytes[0], HEX) + " " + String(inBytes[1], HEX));
-      //delay(100);
-      input_buffer_flush();
-      Serial.write("~");      //Nack, denoting master should not send any info
-      delay(200);             //300ms delay    
-      input_buffer_flush();   //flush all input buffer
-      Serial.write("^");      //Write ready for resetting comms
+    if(in_byte == end_byte) {
+      read_in_prog = false;
+      parse_rx();
+    }
+
+    if(read_in_prog) {  
+      inBytes[cntr] = in_byte;
+      cntr = cntr == 2 ? cntr : cntr + 1;
+    }
+
+    if(in_byte == start_byte) {
+      cntr = 0;
+      read_in_prog = true;
+    }
+  }
+}
+
+void parse_rx() {
+  //Reset the CRC and recalculate it
+  crc8.reset();
+  crc8.next(inBytes[0]);
+  crc8.next(inBytes[1]);
+
+  //Check the CRC
+  if(crc8.get_crc() != inBytes[2])  //CRC Mismatch
+  {
+    Serial.println("BAD CRC MATCH!!! RECV: " + String(inBytes[2], HEX));
+    Serial.println("RECV: " + String(inBytes[0], HEX) + " " + String(inBytes[1], HEX));
+    //delay(100);
+    //input_buffer_flush();
+    //Serial.write("~");      //Nack, denoting master should not send any info
+    //delay(200);             //300ms delay    
+    //input_buffer_flush();   //flush all input buffer
+    //Serial.write("^");      //Write ready for resetting comms
+  }
+  else {
+    //Serial.println("CRC MATCH! " + String(inBytes[2], HEX));
+    // Print out our new positions
+    //For firing the laser:
+    if(inBytes[0] == 0x7A && inBytes[1] == 0x86 && int_curr_val == 0) {
+      digitalWrite(laserPin, HIGH);
+      cli();      //stop interrutps
+      TCCR0A = 0; //set associated timer regs to 0
+      TCNT0  = 0; //^^
+      TIMSK0 |= (1 << OCIE0A);             // enable the timer interrupt
+      sei();      //enable interrupts
     }
     else {
-      //Serial.println("CRC MATCH! " + String(inBytes[2], HEX));
-      // Print out our new positions
-      //For firing the laser:
-      if(inBytes[0] == 0xF1 && inBytes[1] == 0x7E && int_curr_val == 0) {
-        digitalWrite(laserPin, HIGH);
-        cli();      //stop interrutps
-        TCCR0A = 0; //set associated timer regs to 0
-        TCNT0  = 0; //^^
-        TIMSK0 |= (1 << OCIE0A);             // enable the timer interrupt
-        sei();      //enable interrupts
-      }
-      else {
-        inByte0 = conv_unsignedbyte_signedint(inBytes[0]);
-        inByte1 = conv_unsignedbyte_signedint(inBytes[1]);
-        
-        panPos = panPos - inByte0;
-        tiltPos = tiltPos + inByte1;
-        // Subtract 100 from each number we got and update the new positions
-        //panPos = panPos - (int(inBytes[0]));
-        //tiltPos = tiltPos + (int(inBytes[1]));
-        //Serial.println("RECEIVED BYTE 0: " + String(inByte0, DEC));
-        //Serial.println("RECEIVED BYTE 1: " + String(inByte1, DEC));
-        //Serial.println("New panPos: "      + String(panPos, DEC));
-        //Serial.println("New tiltPos: "     + String(tiltPos, DEC));
-        
-        // Move servos to next position
-        Serial.println("Panning by: " + String(panPos, DEC));
-        tiltServo.write(tiltPos);
-        Serial.println("Tilting to: " + String(tiltPos, DEC));
-        panServo.write(panPos);
-        
-      }
-      Serial.write("*");
+      inByte0 = conv_unsignedbyte_signedint(inBytes[0]);
+      inByte1 = conv_unsignedbyte_signedint(inBytes[1]);
+      
+      panPos = panPos - inByte0;
+      tiltPos = tiltPos + inByte1;
+      // Subtract 100 from each number we got and update the new positions
+      //panPos = panPos - (int(inBytes[0]));
+      //tiltPos = tiltPos + (int(inBytes[1]));
+      //Serial.println("RECEIVED BYTE 0: " + String(inByte0, DEC));
+      //Serial.println("RECEIVED BYTE 1: " + String(inByte1, DEC));
+      //Serial.println("New panPos: "      + String(panPos, DEC));
+      //Serial.println("New tiltPos: "     + String(tiltPos, DEC));
+      
+      // Move servos to next position
+      Serial.println("Panning by: " + String(panPos, DEC));
+      tiltServo.write(tiltPos);
+      Serial.println("Tilting to: " + String(tiltPos, DEC));
+      panServo.write(panPos);
+      
     }
-
-    // Send Ack
-    //Serial.write("*");
+    Serial.write("*");
   }
+
+  // Send Ack
+  //Serial.write("*");
 }
 
 /***

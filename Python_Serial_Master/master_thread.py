@@ -80,8 +80,8 @@ class master_thread(QThread):
         with self.locker:
             self.status = "FIRING"
             fire_word = bytearray()
-            fire_word += (int("F1",16)).to_bytes(1, byteorder="little", signed=False)
-            fire_word += (int("7E", 16)).to_bytes(1, byteorder="little", signed=False)
+            fire_word += (int("7A",16)).to_bytes(1, byteorder="little", signed=False)
+            fire_word += (int("86", 16)).to_bytes(1, byteorder="little", signed=False)
             self.tx_q.put(fire_word)
             self.change_status.emit(self.status)
         self.fire_timer = threading.Timer(1, self.timeout_fire)
@@ -183,7 +183,7 @@ class master_thread(QThread):
                 with self.locker:
                     self.nack_reset = True
                 self.ts_print("RECEIVED NACK: {0}, HALTING".format(byte_string))
-                self.nack_timer = threading.Timer(2, self.timeout_nack)
+                self.nack_timer = threading.Timer(4, self.timeout_nack)
                 self.nack_timer.start()
             elif byte_string == b'^':
                 if self.nack_timer is not None:

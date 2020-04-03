@@ -38,7 +38,7 @@ class GUI_TOP(QMainWindow):
         a stupid insult to all of this program's users.
         ''' 
         self.init_threads()
-        self.window_id = int("03600001", 16)
+        self.window_id = int("03c00001", 16)
         
         #'''
         self.window = QWindow.fromWinId(self.window_id)
@@ -99,6 +99,7 @@ class GUI_TOP(QMainWindow):
         rect_screen = self.geometry()
         center = rect_screen.bottomLeft()
         center.setX(center.x()+rect_screen.width()*0.5)
+        #QToolTip.setFont(
         QToolTip.showText(center, "LOST TRACK OF DRONE{0}!".format(drone_id), self)
 
     @pyqtSlot(bool)

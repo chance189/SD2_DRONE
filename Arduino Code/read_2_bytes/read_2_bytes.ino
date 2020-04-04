@@ -101,13 +101,15 @@ void parse_rx() {
     //Serial.println("CRC MATCH! " + String(inBytes[2], HEX));
     // Print out our new positions
     //For firing the laser:
-    if(inBytes[0] == 0x7A && inBytes[1] == 0x86 && int_curr_val == 0) {
-      digitalWrite(laserPin, HIGH);
-      cli();      //stop interrutps
-      TCCR0A = 0; //set associated timer regs to 0
-      TCNT0  = 0; //^^
-      TIMSK0 |= (1 << OCIE0A);             // enable the timer interrupt
-      sei();      //enable interrupts
+    if(inBytes[0] == 0x7A && inBytes[1] == 0x86) {
+      if(int_curr_val == 0) {
+        digitalWrite(laserPin, HIGH);
+        cli();      //stop interrutps
+        TCCR0A = 0; //set associated timer regs to 0
+        TCNT0  = 0; //^^
+        TIMSK0 |= (1 << OCIE0A);             // enable the timer interrupt
+        sei();      //enable interrupts
+      }
     }
     else {
       inByte0 = conv_unsignedbyte_signedint(inBytes[0]);
@@ -130,11 +132,11 @@ void parse_rx() {
       panServo.write(panPos);
       
     }
-    Serial.write("*");
+    //Serial.write("*");
   }
 
   // Send Ack
-  //Serial.write("*");
+  Serial.write("*");
 }
 
 /***
@@ -159,9 +161,9 @@ ISR(TIMER0_COMPA_vect) {
   if(int_curr_val == 61) {
     cli();      //stop interrutps
     TIMSK0 &= ~(1 << OCIE0A);             // disable the timer interrupt
+    int_curr_val = 0;
     sei();      //enable interrupts
     digitalWrite(laserPin, LOW);
-    int_curr_val = 0;
   }
   else {
     int_curr_val+=1;

@@ -118,13 +118,6 @@ void parse_rx() {
       
       panPos = panPos - inByte0;
       tiltPos = tiltPos + inByte1;
-      // Subtract 100 from each number we got and update the new positions
-      //panPos = panPos - (int(inBytes[0]));
-      //tiltPos = tiltPos + (int(inBytes[1]));
-      //Serial.println("RECEIVED BYTE 0: " + String(inByte0, DEC));
-      //Serial.println("RECEIVED BYTE 1: " + String(inByte1, DEC));
-      //Serial.println("New panPos: "      + String(panPos, DEC));
-      //Serial.println("New tiltPos: "     + String(tiltPos, DEC));
       
       // Move servos to next position
       Serial.println("Panning by: " + String(panPos, DEC));

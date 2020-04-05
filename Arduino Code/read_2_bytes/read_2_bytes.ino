@@ -96,6 +96,7 @@ void parse_rx() {
     //delay(200);             //300ms delay    
     //input_buffer_flush();   //flush all input buffer
     //Serial.write("^");      //Write ready for resetting comms
+    Serial.write("*");        //Even though nack, we should report back
   }
   else {
     //Serial.println("CRC MATCH! " + String(inBytes[2], HEX));
@@ -132,11 +133,8 @@ void parse_rx() {
       panServo.write(panPos);
       
     }
-    //Serial.write("*");
+    Serial.write("*");    //Write back ack
   }
-
-  // Send Ack
-  Serial.write("*");
 }
 
 /***

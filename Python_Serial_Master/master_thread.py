@@ -155,7 +155,6 @@ class master_thread(QThread):
             #What if there were no timers?
             #Here lies my madness with dumb fucking timers
             if self.sent_data:
-                pass
                 self.ts_print("Not sent due to false")
             else:
                 self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
@@ -181,8 +180,8 @@ class master_thread(QThread):
                 #if self.timer.isAlive():   #only perform action if timer is active
                  #   self.timer.cancel()    #received reply b4 timeout, kill the thread
                   #  self.ts_print("Timer Killed")
-                   # with self.locker:
-                    #    self.sent_data = False
+                with self.locker:
+                    self.sent_data = False
                 self.ts_print("RECEIVED ACK: {0}".format(byte_string))
             '''
             * Nack is no longer needed, use open ended methodology to increase speed

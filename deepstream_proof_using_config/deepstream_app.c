@@ -742,6 +742,7 @@ create_common_elements (NvDsConfig * config, NvDsPipeline * pipeline,
   }
 
   if (config->tracker_config.enable) {
+    g_print("Hey! TRACKING IS ENABLED!!!! YOU DUNCE!!!\n");
     if (!create_tracking_bin (&config->tracker_config,
             &pipeline->common_elements.tracker_bin)) {
       g_print ("creating tracker bin failed\n");

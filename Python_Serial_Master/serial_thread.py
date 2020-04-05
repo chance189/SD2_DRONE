@@ -11,6 +11,7 @@ from threading import RLock
 import traceback
 import time
 import ctypes
+import sys
 
 NACK = b'~'  #simple 1 byte agreement that isn't used in my debug statements
 
@@ -30,21 +31,27 @@ class serial_thread(threading.Thread):
     def run(self):
         self.ts_print("in Serial Thread")
         while(True):
-            if self.serial_conn.in_waiting > 0:
-                rx = self.serial_conn.read(1)                        #expect a 1 byte word
-                if rx == NACK:
-                    self.ts_print("NACK RX!")
-                    if self.serial_conn.out_waiting != 0:
-                        self.ts_print("{0} bytew were in output buffer! Clearing!".format(serial_conn.out_waiting))
+            try:
+                if self.serial_conn.in_waiting > 0:
+                    rx = self.serial_conn.read(1)                        #expect a 1 byte word
+                    if rx == NACK:
+                        self.ts_print("NACK RX!")
+                        if self.serial_conn.out_waiting != 0:
+                            self.ts_print("{0} bytew were in output buffer! Clearing!".format(serial_conn.out_waiting))
                     self.serial_conn.reset_output_buffer()    #reset the output
-                self.recv_q.put(rx)
+                    self.recv_q.put(rx)
 
-            if not self.tx_q.empty():
-                transmit = self.tx_q.get();
-                transmit += self.crc8(transmit)
-                transmit = (int("7F", 16).to_bytes(1, byteorder="little", signed="False")) + transmit + (int("80", 16).to_bytes(1, byteorder="little")) #add start byte
-                self.ts_print("We sent: {0}, #b: {1}, at {2}".format(transmit, len(transmit), time.time()))
-                self.serial_conn.write(transmit)
+                if not self.tx_q.empty():
+                    transmit = self.tx_q.get();
+                    transmit += self.crc8(transmit)
+                    transmit = (int("7F", 16).to_bytes(1, byteorder="little", signed="False")) + transmit + (int("80", 16).to_bytes(1, byteorder="little")) #add start byte
+                    self.ts_print("We sent: {0}, #b: {1}, at {2}".format(transmit, len(transmit), time.time()))
+                    self.serial_conn.write(transmit)
+            except Exception as e:
+                self.ts_print("Exception in socket thread")
+                traceback.print_exc(file=sys.stdout)
+
+
 
     def ts_print(self, *a, **b):   #threadsafe way to print data
         with self.print_locker:

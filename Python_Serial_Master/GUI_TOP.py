@@ -51,6 +51,7 @@ class GUI_TOP(QMainWindow):
         #'''
         self.ui.time_updates.setReadOnly(True)
         self.ui.time_updates.setMaximumBlockCount(50)
+        self.setWindowTitle("RTDS GUI")
         
     def init_threads(self):
         #init

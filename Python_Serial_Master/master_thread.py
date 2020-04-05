@@ -38,9 +38,10 @@ class master_thread(QThread):
         self.locker = RLock()
         self.init_threads()
         self.tracked_objs = {}
-        self.timer = threading.Timer(1.5, self.timeout_rst)
+        self.timer = threading.Timer(0.2, self.timeout_rst)
         self.sent_data = False          #used for ensuring that
         self.nack_reset = False
+        self.nack_timer = None
        
         #Note to self, GPIO does not yield high enough voltage to drive our laser
         self.fire_timer = threading.Timer(1, self.timeout_fire)
@@ -84,7 +85,7 @@ class master_thread(QThread):
             fire_word += (int("86", 16)).to_bytes(1, byteorder="little", signed=False)
             self.tx_q.put(fire_word)
             self.change_status.emit(self.status)
-        self.fire_timer = threading.Timer(1, self.timeout_fire)
+        self.fire_timer = threading.Timer(0.5, self.timeout_fire)
         self.fire_timer.start()
 
     def timeout_fire(self):
@@ -148,37 +149,43 @@ class master_thread(QThread):
                     self.change_status.emit(self.status)
 
             if math.fabs(servo_X) <= 2 and math.fabs(servo_Y) <= 2 and not self.fire_timer.isAlive() and not self.nack_reset:
-                self.fire_laser()
-            else: 
-                #Here lies my madness with dumb fucking timers
-                if self.sent_data or self.nack_reset:
-                    pass
-                else:
-                    self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
-                
-                    with self.locker:
-                        self.sent_data = True
-                
-                    if not self.timer.isAlive():
-                        try:
-                            self.timer = threading.Timer(1.5, self.timeout_rst)
-                            self.timer.start()
-                        except Exception as e:
-                            self.ts_print("Attempting to join!!!")
-                            self.timer.join()
-                            self.timer.start()
-                            self.ts_print("Successful joining!")
+                self.fire_laser() 
+            #self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
+            #'''
+            #What if there were no timers?
+            #Here lies my madness with dumb fucking timers
+            if self.sent_data:
+                pass
+                self.ts_print("Not sent due to false")
+            else:
+                self.tx_q.put(self.tracked_objs[data.get_ID()].package_serial())
+            
+                with self.locker:
+                    self.sent_data = True
+            
+                if not self.timer.isAlive():
+                    try:
+                        self.timer = threading.Timer(0.2, self.timeout_rst)
+                        self.timer.start()
+                    except Exception as e:
+                        self.ts_print("Attempting to join!!!")
+                        self.timer.join()
+                        self.timer.start()
+                        self.ts_print("Successful joining!")
+            #'''
             
     def handle_new_arduino_msg(self):
         if not self.recv_q.empty():
             byte_string = self.recv_q.get()
             if byte_string == b'*':
-                if self.timer.isAlive():   #only perform action if timer is active
-                    self.timer.cancel()    #received reply b4 timeout, kill the thread
-                    self.ts_print("Timer Killed")
-                    with self.locker:
-                        self.sent_data = False
+                #if self.timer.isAlive():   #only perform action if timer is active
+                 #   self.timer.cancel()    #received reply b4 timeout, kill the thread
+                  #  self.ts_print("Timer Killed")
+                   # with self.locker:
+                    #    self.sent_data = False
                 self.ts_print("RECEIVED ACK: {0}".format(byte_string))
+            '''
+            * Nack is no longer needed, use open ended methodology to increase speed
             elif byte_string == b'~':     #nack received, halt all comms
                 with self.locker:
                     self.nack_reset = True
@@ -193,6 +200,7 @@ class master_thread(QThread):
                             self.nack_reset = False
                         self.ts_print("Killing nack timer!")
                 self.ts_print("RESTARTING COMMUNICATIONS!")
+            '''
 
 '''
 if __name__ == "__main__":
